@@ -1,0 +1,39 @@
+@font-face {
+    font-family: "NotoColorEmoji";
+    src: url("./lk/ijse/chatapplication/assets/font/NotoColorEmoji-Regular.ttf");
+}
+
+.emoji-label {
+    -fx-font-family: "NotoColorEmoji";
+    -fx-font-size: 16px; /* Adjust size as needed */
+}
+
+.bg-server{
+    -fx-background-color: linear-gradient( to left, #43C6AC 0%, #F8FFAE 100%);
+    -fx-border-color: BLack;
+}
+
+.btn-server{
+    -fx-background-color: linear-gradient( to left, #11998e 0%, #38ef7d 100%);
+}
+
+.bg-client{
+    /*-fx-background-color: linear-gradient( to left, #ffffff 0%, #1de8ff 80%);*/
+    -fx-background-color: #93f8da;
+}
+.btn-client{
+    -fx-background-color: linear-gradient( to left, #00b09b 0%, #96c93d 100%);
+}
+.lbl-vbox{
+    -fx-opacity: 100;
+    -fx-alignment: Center_Right;
+}
+
+.msg-box{
+    -fx-background-color: #57daff;
+    -fx-background-radius: 35;
+    -fx-font-size: 15;
+    -fx-font-family: "NotoColorEmoji";
+    -fx-font-weight: 400;
+    -fx-padding: 7px 10px ;
+}
