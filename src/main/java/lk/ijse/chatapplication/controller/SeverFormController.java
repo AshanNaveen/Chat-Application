@@ -17,13 +17,15 @@ import javafx.scene.text.TextFlow;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import lk.ijse.chatapplication.AppInitializer;
+import lk.ijse.chatapplication.MyFile;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashSet;
 import java.util.Set;
+
+import static lk.ijse.chatapplication.controller.ClientFormController.getFileExtension;
 
 public class SeverFormController {
     @FXML
@@ -78,9 +80,12 @@ public class SeverFormController {
                 if (message.equals("exit")) {
                     message = "User disconnected";
                     break;
+                } else if (message.startsWith("**file:@")) {
+                    handleFileTransfer(message, clientSocket);
+                } else {
+                    // Broadcast the message to all connected clients
+                    broadcast(message, clientSocket);
                 }
-                // Broadcast the message to all connected clients
-                broadcast(message, clientSocket);
             }
 
         } catch (IOException e) {
@@ -88,6 +93,53 @@ public class SeverFormController {
         } finally {
             System.out.println("Client disconnected: " + clientSocket.getInetAddress());
             clientSockets.remove(clientSocket);
+        }
+    }
+
+    private static void handleFileTransfer(String startMessage, Socket sender) {
+        try {
+            DataInputStream dataInputStream = new DataInputStream(sender.getInputStream());
+            DataOutputStream dataOutputStream = new DataOutputStream(sender.getOutputStream());
+
+
+            int fileNameLength = dataInputStream.readInt();
+            if (fileNameLength > 0) {
+                byte[] fileNameBytes = new byte[fileNameLength];
+                dataInputStream.readFully(fileNameBytes, 0, fileNameBytes.length);
+                String fileName = new String(fileNameBytes);
+                int fileContentLength = dataInputStream.readInt();
+                if (fileContentLength > 0) {
+                    byte[] fileContentBytes = new byte[fileContentLength];
+                    dataInputStream.readFully(fileContentBytes, 0, fileContentBytes.length);
+                    MyFile file = new MyFile(fileName, fileContentBytes, getFileExtension(fileName));
+
+                    byte[] sendfileNameBytes = file.getName().getBytes();
+
+                    for (Socket clientSocket : clientSockets) {
+                        if (!clientSocket.equals(sender)) {
+
+                            try {
+
+                                OutputStream outputStream=clientSocket.getOutputStream();
+                                outputStream.write("**file:@".getBytes());
+                                outputStream.flush();
+
+                                dataOutputStream.writeInt(sendfileNameBytes.length);
+                                dataOutputStream.write(fileNameBytes);
+                                dataOutputStream.writeInt(file.getData().length);
+                                dataOutputStream.write(file.getData());
+                                dataOutputStream.flush();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                }
+
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 

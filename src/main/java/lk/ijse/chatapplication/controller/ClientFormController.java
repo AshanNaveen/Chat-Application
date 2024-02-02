@@ -9,6 +9,7 @@ import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.effect.DropShadow;
@@ -29,8 +30,10 @@ import javafx.stage.Window;
 import javafx.stage.WindowEvent;
 import javafx.util.Duration;
 import javafx.embed.swing.SwingFXUtils;
+import lk.ijse.chatapplication.MyFile;
 
 import javax.imageio.ImageIO;
+import javax.swing.*;
 import java.awt.*;
 import java.util.Base64;
 import java.awt.image.BufferedImage;
@@ -100,28 +103,13 @@ public class ClientFormController {
                     System.out.println(message);
 
                     if (message.startsWith("**file:@")) {
-                        receiveAttachment(getExtension(message.substring(8)));
+                        System.out.println("recive");
+                        receiveFile();
                     } else if (message.startsWith("**msg:@")) {
                         handleMessage(message.substring(7));
                     } else if (message.startsWith("**emoji:@")) {
                         handleEmoji(message.substring(9));
                     }
-
-
-                    Platform.runLater(() -> {
-//                        TextFlow text = new TextFlow(new Text(s));
-//                        text.setTextAlignment(TextAlignment.LEFT);
-//                        text.setMaxWidth(maxWidth);
-//                        text.setPadding(new Insets(2, 5, 2, 5));
-//
-//                        text.getStyleClass().add("msg-box");
-//
-//                        HBox hBox = new HBox();
-//                        hBox.setPadding(new Insets(5, 0, 0, 0));
-//                        hBox.setAlignment(Pos.CENTER_LEFT);
-//                        hBox.getChildren().add(text);
-//                        vbox.getChildren().add(hBox);
-                    });
 
                 }
             });
@@ -134,9 +122,90 @@ public class ClientFormController {
         }
     }
 
+    private void receiveFile() {
+
+        try {
+
+            DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
+
+            System.out.println(" try");
+            // Read the size of the file name so know when to stop reading.
+            int fileNameLength = dataInputStream.readInt();
+            Thread.sleep(100);
+            System.out.println("length " + fileNameLength);
+            // If the file exists
+            if (fileNameLength > 0) {
+                // Byte array to hold name of file.
+                byte[] fileNameBytes = new byte[fileNameLength];
+                // Read from the input stream into the byte array.
+                dataInputStream.readFully(fileNameBytes, 0, fileNameBytes.length);
+                // Create the file name from the byte array.
+                String fileName = new String(fileNameBytes);
+                // Read how much data to expect for the actual content of the file.
+                int fileContentLength = dataInputStream.readInt();
+                System.out.println("file created");
+                // If the file exists.
+                if (fileContentLength > 0) {
+                    // Array to hold the file data.
+                    byte[] fileContentBytes = new byte[fileContentLength];
+                    // Read from the input stream into the fileContentBytes array.
+                    dataInputStream.readFully(fileContentBytes, 0, fileContentBytes.length);
+                    //MyFile file = new MyFile(fileName, fileContentBytes, getFileExtension(fileName)));
+                    File fileToDownload = new File(fileName);
+
+                    try {
+                        // Create a stream to write data to the file.
+                        FileOutputStream fileOutputStream = new FileOutputStream(fileToDownload);
+                        // Write the actual file data to the file.
+                        fileOutputStream.write(fileContentBytes);
+                        // Close the stream.
+                        fileOutputStream.close();
+
+
+                    } catch (IOException ex) {
+                        ex.printStackTrace();
+                    }
+
+                    if (getFileExtension(fileName).equals("jpg") || getFileExtension(fileName).equals("png")) {
+                        ImageView imageView = new ImageView(new Image(fileToDownload.getAbsolutePath()));
+                        imageView.setFitWidth(200);
+                        imageView.setFitHeight(200);
+                        imageView.setPreserveRatio(true);
+
+
+                        Platform.runLater(() -> {
+                            HBox hBox = new HBox();
+                            hBox.setPadding(new Insets(5, 0, 0, 0));
+                            hBox.setAlignment(Pos.CENTER_LEFT);
+                            hBox.getChildren().add(imageView);
+                            vbox.getChildren().add(hBox);
+                        });
+                    }
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static String getFileExtension(String fileName) {
+        // Get the file type by using the last occurence of . (for example aboutMe.txt returns txt).
+        // Will have issues with files like myFile.tar.gz.
+        int i = fileName.lastIndexOf('.');
+        // If there is an extension.
+        if (i > 0) {
+            // Set the extension to the extension of the filename.
+            return fileName.substring(i + 1);
+        } else {
+            return "No extension found.";
+        }
+    }
+
     private void handleEmoji(String message) {
         try {
-            Image image = new Image(imgEmoji.getImage().getUrl().replaceAll("(icons8-smile-64.png)", message+".png"));
+            Image image = new Image(imgEmoji.getImage().getUrl().replaceAll("(icons8-smile-64.png)", message + ".png"));
             ImageView imageView = createAndConfigureImageView(image);
 
             Platform.runLater(() -> {
@@ -166,39 +235,16 @@ public class ClientFormController {
 
         text.getStyleClass().add("msg-box");
 
-        HBox hBox = new HBox();
-        hBox.setPadding(new Insets(5, 0, 0, 0));
-        hBox.setAlignment(Pos.CENTER_LEFT);
-        hBox.getChildren().add(text);
-        vbox.getChildren().add(hBox);
+        Platform.runLater(() -> {
+            HBox hBox = new HBox();
+            hBox.setPadding(new Insets(5, 0, 0, 0));
+            hBox.setAlignment(Pos.CENTER_LEFT);
+            hBox.getChildren().add(text);
+            vbox.getChildren().add(hBox);
+        });
+
     }
 
-    private String getExtension(String message) {
-        int index = message.indexOf("file:@");
-        if (index != -1) {
-            return message.substring(index + 6).trim(); // Skip "file:@" and the colon, trim spaces
-        } else {
-            return ""; // No match found
-        }
-    }
-
-    private void receiveAttachment(String extension) {
-        System.out.println("from receive");
-        try (InputStream inputStream = socket.getInputStream();
-             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(new FileOutputStream("./lk/ijse/chatapplication/assets/font/" + LocalDate.now() + LocalTime.now() + "." + extension))) {
-
-            byte[] buffer = new byte[1024];
-            int bytesRead = 0;
-            System.out.println("waiting");
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                bufferedOutputStream.write(buffer, 0, bytesRead);
-            }
-            System.out.println("attachment received from server.");
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
     @FXML
     private void exitProgramAction(Event exitProgramEvent) {
@@ -236,7 +282,7 @@ public class ClientFormController {
     public void sendOnAction(Event actionEvent) {
 
         String message = txtMessage.getText();
-        sendString(message);
+        sendString("**msg:@" + message);
 
         Text text1 = new Text(message);
         text1.setFont(Font.font("NotoColorEmoji", 16));
@@ -295,35 +341,19 @@ public class ClientFormController {
             ImageView icon = (ImageView) mouseEvent.getSource();
             switch (icon.getId()) {
                 case "imgfile":
-                    FileChooser fileChooser = new FileChooser();
-                    fileChooser.setTitle("Select File");
-                    //fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.gif"));
-                    File selectedFile = fileChooser.showOpenDialog(null);
-                    System.out.println(selectedFile.getPath());
-                    BufferedInputStream bufferedInputStream = new BufferedInputStream(new FileInputStream(selectedFile.getPath()));
+                    JFileChooser fileChooser = new JFileChooser();
+                    fileChooser.setDialogTitle("Select File");
+                    fileChooser.setDialogTitle("Choose a file to send.");
+                    File selectedFile = null;
 
-                    if (selectedFile != null) {
-                        String extension = "";
-                        int dotIndex = selectedFile.getName().lastIndexOf('.');
-                        if (dotIndex >= 0) {
-                            extension = selectedFile.getName().substring(dotIndex + 1).toLowerCase();
-                        }
-
-                        System.out.println("Selected file extension: " + extension);
-
-                        String message = "**file:@" + extension;
-                        outputStream.write(message.getBytes());
-                        byte[] buffer = new byte[1024];
-                        int bytesRead;
-
-                        while ((bytesRead = bufferedInputStream.read(buffer)) != -1) {
-                            outputStream.write(buffer, 0, bytesRead);
-                        }
-
-                        System.out.println("attachment sent to client.");
-                        // Proceed with file operations based on the extension
+                    if (fileChooser.showOpenDialog(null)  == JFileChooser.APPROVE_OPTION) {
+                       selectedFile  = fileChooser.getSelectedFile();
+                       sendFile(selectedFile);
                     }
 
+                    if (selectedFile != null) {
+                        sendFile(selectedFile);
+                    }
                     break;
                 case "imgEmoji":
                     emojiPane.setVisible(!isEmojiPaneVisible);
@@ -335,6 +365,43 @@ public class ClientFormController {
 
     }
 
+    private void sendFile(File selectedFile) {
+        if (selectedFile == null) {
+            new Alert(Alert.AlertType.ERROR, "Please choose a file to send first!").show();
+            // If a file has been selected then do the following.
+        } else {
+            try {
+                // Create an input stream into the file you want to send.
+                FileInputStream fileInputStream = new FileInputStream(selectedFile.getAbsolutePath());
+                // Create a socket connection to connect with the server.
+                // Create an output stream to write to write to the server over the socket connection.
+                DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
+                // Get the name of the file you want to send and store it in filename.
+                String fileName = selectedFile.getName();
+                // Convert the name of the file into an array of bytes to be sent to the server.
+                byte[] fileNameBytes = fileName.getBytes();
+                // Create a byte array the size of the file so don't send too little or too much data to the server.
+                byte[] fileBytes = new byte[(int) selectedFile.length()];
+                // Put the contents of the file into the array of bytes to be sent so these bytes can be sent to the server.
+                fileInputStream.read(fileBytes);
+
+                sendString("**file:@");
+
+
+                // Send the length of the name of the file so server knows when to stop reading.
+                dataOutputStream.writeInt(fileNameBytes.length);
+                // Send the file name.
+                dataOutputStream.write(fileNameBytes);
+                // Send the length of the byte array so the server knows when to stop reading.
+                dataOutputStream.writeInt(fileBytes.length);
+                // Send the actual file.
+                dataOutputStream.write(fileBytes);
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
     private void sendString(String msg) {
         try {
             outputStream.write(msg.getBytes());
@@ -343,50 +410,6 @@ public class ClientFormController {
         }
     }
 
-    /*private String convertImageToString(Image image) throws IOException {
-        double maxWidth = 600;
-        double maxHeight = 400;
-        double width = image.getWidth();
-        double height = image.getHeight();
-
-        if (width > maxWidth || height > maxHeight) {
-            double scaleFactor = Math.min(maxWidth / width, maxHeight / height);
-            width *= scaleFactor;
-            height *= scaleFactor;
-        }
-
-        BufferedImage resizedImage = new BufferedImage((int) width, (int) height, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = resizedImage.createGraphics();
-        g.drawImage(SwingFXUtils.fromFXImage(image, null), 0, 0, (int) width, (int) height, null);
-        g.dispose();
-
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ImageIO.write(resizedImage, "png", outputStream); // Use "png" instead of "jpg"
-        byte[] imageBytes = outputStream.toByteArray();
-
-        return Base64.getEncoder().encodeToString(imageBytes);
-    }
-
-    private Image convertStringToImage(String imageAsString) throws IOException {
-        byte[] imageBytes = Base64.getDecoder().decode(imageAsString);
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(imageBytes);
-        inputStream.reset();  // Reset the position to the beginning
-
-        BufferedImage bufferedImage=null;
-        try {
-           bufferedImage = ImageIO.read(inputStream);
-            // Rest of the code
-        } catch (Exception e) {
-            e.printStackTrace();
-            // Handle the exception, log details, or show an error message
-        }
-
-        if (bufferedImage == null) {
-            throw new IOException("Unable to decode the image.");
-        }
-
-        return SwingFXUtils.toFXImage(bufferedImage, null);
-    }*/
 
     @FXML
     private void emojiClicked(MouseEvent event) throws IOException {

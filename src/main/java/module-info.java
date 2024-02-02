@@ -6,6 +6,7 @@ module lk.ijse.chatapplication {
 
     requires org.controlsfx.controls;
     requires javafx.swing;
+    requires ftpserver.core;
 
     opens lk.ijse.chatapplication to javafx.fxml;
     opens lk.ijse.chatapplication.controller to javafx.fxml,com.jfoenix;
